@@ -5,6 +5,10 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TicTacToe", "TicTacToe\TicTacToe.csproj", "{5B09821F-B4B5-42EF-8422-B9F177EFDAC1}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TicTacToe.Tests", "TicTacToe.Tests\TicTacToe.Tests.csproj", "{3E2ADFFF-0988-48F5-8A15-9564B031818B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TicTacToe.E2ETests", "TicTacToe.E2ETests\TicTacToe.E2ETests.csproj", "{10EB852C-90D3-4C5B-BBAF-CB0BB6BC52C5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,5 +22,13 @@ Global
 		{5B09821F-B4B5-42EF-8422-B9F177EFDAC1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5B09821F-B4B5-42EF-8422-B9F177EFDAC1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5B09821F-B4B5-42EF-8422-B9F177EFDAC1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3E2ADFFF-0988-48F5-8A15-9564B031818B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3E2ADFFF-0988-48F5-8A15-9564B031818B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3E2ADFFF-0988-48F5-8A15-9564B031818B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3E2ADFFF-0988-48F5-8A15-9564B031818B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{10EB852C-90D3-4C5B-BBAF-CB0BB6BC52C5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{10EB852C-90D3-4C5B-BBAF-CB0BB6BC52C5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{10EB852C-90D3-4C5B-BBAF-CB0BB6BC52C5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{10EB852C-90D3-4C5B-BBAF-CB0BB6BC52C5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
