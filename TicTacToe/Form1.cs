@@ -2,13 +2,21 @@ namespace TicTacToe;
 
 public partial class Form1 : Form
 {
-    private const int BoardSize = 3;
+    private const int BoardSize = GameEngine.BoardSize;
     private readonly Button[,] _cells = new Button[BoardSize, BoardSize];
-    private bool _isXTurn = true;
-    private bool _gameOver;
-    private int _xWins;
-    private int _oWins;
-    private int _draws;
+    private readonly GameEngine _engine = new();
+
+    internal GameEngine Engine => _engine;
+    internal Button GetCell(int row, int col) => _cells[row, col];
+    internal Label StatusLabel => _statusLabel;
+    internal Label ScoreLabel => _scoreLabel;
+    internal Button ResetBtn => _resetButton;
+
+    internal void SimulateCellClick(int row, int col) =>
+        Cell_Click(_cells[row, col], EventArgs.Empty);
+
+    internal void SimulateResetClick() =>
+        ResetButton_Click(_resetButton, EventArgs.Empty);
 
     public Form1()
     {
@@ -47,94 +55,55 @@ public partial class Form1 : Form
 
     private void Cell_Click(object? sender, EventArgs e)
     {
-        if (_gameOver || sender is not Button button || !string.IsNullOrEmpty(button.Text))
+        if (sender is not Button button)
             return;
 
-        button.Text = _isXTurn ? "X" : "O";
-        button.ForeColor = _isXTurn ? Color.DarkBlue : Color.DarkRed;
+        var pos = (Point)button.Tag!;
+        var result = _engine.PlaceMark(pos.X, pos.Y);
 
-        if (CheckWinner())
+        if (result == MoveResult.CellOccupied || result == MoveResult.GameAlreadyOver || result == MoveResult.InvalidPosition)
+            return;
+
+        string placedMark = _engine.GetCell(pos.X, pos.Y);
+        button.Text = placedMark;
+        button.ForeColor = placedMark == "X" ? Color.DarkBlue : Color.DarkRed;
+
+        switch (result)
         {
-            _gameOver = true;
-            string winner = _isXTurn ? "X" : "O";
-            if (_isXTurn) _xWins++; else _oWins++;
-            UpdateScoreLabel();
-            _statusLabel.Text = $"{winner} \u306e\u52dd\u3061\uff01";
-            HighlightWinningCells();
+            case MoveResult.Win:
+                UpdateScoreLabel();
+                _statusLabel.Text = $"{placedMark} の勝ち！";
+                HighlightWinningCells();
+                break;
+            case MoveResult.Draw:
+                UpdateScoreLabel();
+                _statusLabel.Text = "引き分け！";
+                break;
+            case MoveResult.Success:
+                UpdateStatus();
+                break;
         }
-        else if (IsBoardFull())
-        {
-            _gameOver = true;
-            _draws++;
-            UpdateScoreLabel();
-            _statusLabel.Text = "\u5f15\u304d\u5206\u3051\uff01";
-        }
-        else
-        {
-            _isXTurn = !_isXTurn;
-            UpdateStatus();
-        }
-    }
-
-    private bool CheckWinner()
-    {
-        string mark = _isXTurn ? "X" : "O";
-
-        for (int i = 0; i < BoardSize; i++)
-        {
-            if (_cells[i, 0].Text == mark && _cells[i, 1].Text == mark && _cells[i, 2].Text == mark)
-                return true;
-            if (_cells[0, i].Text == mark && _cells[1, i].Text == mark && _cells[2, i].Text == mark)
-                return true;
-        }
-
-        if (_cells[0, 0].Text == mark && _cells[1, 1].Text == mark && _cells[2, 2].Text == mark)
-            return true;
-        if (_cells[0, 2].Text == mark && _cells[1, 1].Text == mark && _cells[2, 0].Text == mark)
-            return true;
-
-        return false;
-    }
-
-    private bool IsBoardFull()
-    {
-        for (int row = 0; row < BoardSize; row++)
-        {
-            for (int col = 0; col < BoardSize; col++)
-            {
-                if (string.IsNullOrEmpty(_cells[row, col].Text))
-                    return false;
-            }
-        }
-        return true;
     }
 
     private void HighlightWinningCells()
     {
-        string mark = _isXTurn ? "X" : "O";
+        var winLine = _engine.GetWinLine();
+        if (winLine == null) return;
 
-        for (int i = 0; i < BoardSize; i++)
+        switch (winLine.Type)
         {
-            if (_cells[i, 0].Text == mark && _cells[i, 1].Text == mark && _cells[i, 2].Text == mark)
-            {
-                HighlightRow(i);
-                return;
-            }
-            if (_cells[0, i].Text == mark && _cells[1, i].Text == mark && _cells[2, i].Text == mark)
-            {
-                HighlightColumn(i);
-                return;
-            }
-        }
-
-        if (_cells[0, 0].Text == mark && _cells[1, 1].Text == mark && _cells[2, 2].Text == mark)
-        {
-            _cells[0, 0].BackColor = _cells[1, 1].BackColor = _cells[2, 2].BackColor = Color.LightGreen;
-            return;
-        }
-        if (_cells[0, 2].Text == mark && _cells[1, 1].Text == mark && _cells[2, 0].Text == mark)
-        {
-            _cells[0, 2].BackColor = _cells[1, 1].BackColor = _cells[2, 0].BackColor = Color.LightGreen;
+            case WinLineType.Row:
+                HighlightRow(winLine.Index);
+                break;
+            case WinLineType.Column:
+                HighlightColumn(winLine.Index);
+                break;
+            case WinLineType.DiagonalMain:
+                _cells[0, 0].BackColor = _cells[1, 1].BackColor = _cells[2, 2].BackColor = Color.LightGreen;
+                break;
+            case WinLineType.DiagonalAnti:
+                _cells[0, 2].BackColor = _cells[1, 1].BackColor = _cells[2, 0].BackColor = Color.LightGreen;
+                break;
         }
     }
 
@@ -152,18 +121,17 @@ public partial class Form1 : Form
 
     private void UpdateStatus()
     {
-        _statusLabel.Text = _isXTurn ? "X \u306e\u756a\u3067\u3059" : "O \u306e\u756a\u3067\u3059";
+        _statusLabel.Text = _engine.IsXTurn ? "X の番です" : "O の番です";
     }
 
     private void UpdateScoreLabel()
     {
-        _scoreLabel.Text = $"X: {_xWins}  O: {_oWins}  \u5f15\u304d\u5206\u3051: {_draws}";
+        _scoreLabel.Text = $"X: {_engine.XWins}  O: {_engine.OWins}  引き分け: {_engine.Draws}";
     }
 
     private void ResetButton_Click(object? sender, EventArgs e)
     {
-        _gameOver = false;
-        _isXTurn = true;
+        _engine.Reset();
 
         for (int row = 0; row < BoardSize; row++)
         {
