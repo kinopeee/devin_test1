@@ -58,7 +58,7 @@ partial class Form1
 
         _scoreLabel = new Label
         {
-            Text = "X: 0  O: 0  \u5f15\u304d\u5206\u3051: 0",
+            Text = "\u3042\u306a\u305f: 0  PC: 0  \u5f15\u304d\u5206\u3051: 0",
             Font = new Font("Yu Gothic UI", 10),
             AutoSize = false,
             Width = 200,
