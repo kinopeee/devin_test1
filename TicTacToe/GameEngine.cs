@@ -30,6 +30,7 @@ public class GameEngine
     public int XWins { get; private set; }
     public int OWins { get; private set; }
     public int Draws { get; private set; }
+    public int MoveCount { get; private set; }
     public string CurrentPlayerMark => IsXTurn ? "X" : "O";
 
     public GameEngine()
@@ -54,6 +55,7 @@ public class GameEngine
             return MoveResult.CellOccupied;
 
         _board[row, col] = CurrentPlayerMark;
+        MoveCount++;
 
         if (CheckWinner())
         {
@@ -126,6 +128,7 @@ public class GameEngine
     {
         IsGameOver = false;
         IsXTurn = true;
+        MoveCount = 0;
         ClearBoard();
     }
 

@@ -23,7 +23,7 @@ partial class Form1
         this.components = new System.ComponentModel.Container();
         this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
         this.ClientSize = new System.Drawing.Size(360, 440);
-        this.Text = "\u4e09\u76ee\u4e26\u3079 (Tic-Tac-Toe)";
+        this.Text = "\u4e09\u76ee\u4e26\u3079 - PC\u5bfe\u6226";
         this.FormBorderStyle = FormBorderStyle.FixedSingle;
         this.MaximizeBox = false;
         this.StartPosition = FormStartPosition.CenterScreen;

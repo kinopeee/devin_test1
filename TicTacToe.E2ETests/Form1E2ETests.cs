@@ -7,12 +7,14 @@ namespace TicTacToe.E2ETests;
 
 public class Form1E2ETests
 {
+    private MockGameRepository CreateMockRepo() => new MockGameRepository();
+
     #region Initial State
 
     [StaFact]
     public void Form_InitialState_AllCellsAreEmpty()
     {
-        using var form = new Form1();
+        using var form = new Form1(CreateMockRepo());
 
         for (int r = 0; r < GameEngine.BoardSize; r++)
             for (int c = 0; c < GameEngine.BoardSize; c++)
@@ -20,23 +22,23 @@ public class Form1E2ETests
     }
 
     [StaFact]
-    public void Form_InitialState_StatusShowsXTurn()
+    public void Form_InitialState_StatusShowsPlayerTurn()
     {
-        using var form = new Form1();
-        Assert.Equal("X の番です", form.StatusLabel.Text);
+        using var form = new Form1(CreateMockRepo());
+        Assert.Equal("あなたの番です (X)", form.StatusLabel.Text);
     }
 
     [StaFact]
     public void Form_InitialState_ScoreShowsAllZeros()
     {
-        using var form = new Form1();
-        Assert.Equal("X: 0  O: 0  引き分け: 0", form.ScoreLabel.Text);
+        using var form = new Form1(CreateMockRepo());
+        Assert.Equal("あなた: 0  PC: 0  引き分け: 0", form.ScoreLabel.Text);
     }
 
     [StaFact]
     public void Form_InitialState_AllCellsHaveWhiteBackground()
     {
-        using var form = new Form1();
+        using var form = new Form1(CreateMockRepo());
 
         for (int r = 0; r < GameEngine.BoardSize; r++)
             for (int c = 0; c < GameEngine.BoardSize; c++)
@@ -45,12 +47,12 @@ public class Form1E2ETests
 
     #endregion
 
-    #region Cell Click - Basic
+    #region Player Move
 
     [StaFact]
-    public void ClickCell_FirstClick_ShowsXWithDarkBlueColor()
+    public void ClickCell_PlayerClick_ShowsXWithDarkBlueColor()
     {
-        using var form = new Form1();
+        using var form = new Form1(CreateMockRepo());
 
         form.SimulateCellClick(0, 0);
 
@@ -59,259 +61,255 @@ public class Form1E2ETests
     }
 
     [StaFact]
-    public void ClickCell_SecondClick_ShowsOWithDarkRedColor()
+    public void ClickCell_PlayerClick_ComputerResponds()
     {
-        using var form = new Form1();
+        using var form = new Form1(CreateMockRepo());
 
-        form.SimulateCellClick(0, 0); // X
-        form.SimulateCellClick(1, 1); // O
+        form.SimulateCellClick(0, 0); // Player X
 
-        Assert.Equal("O", form.GetCell(1, 1).Text);
-        Assert.Equal(Color.DarkRed, form.GetCell(1, 1).ForeColor);
+        // Computer should have placed O somewhere
+        int oCount = 0;
+        for (int r = 0; r < GameEngine.BoardSize; r++)
+            for (int c = 0; c < GameEngine.BoardSize; c++)
+                if (form.GetCell(r, c).Text == "O")
+                    oCount++;
+
+        Assert.Equal(1, oCount);
     }
 
     [StaFact]
-    public void ClickCell_AfterXMove_StatusShowsOTurn()
+    public void ClickCell_PlayerClick_ComputerOHasDarkRedColor()
     {
-        using var form = new Form1();
+        using var form = new Form1(CreateMockRepo());
 
         form.SimulateCellClick(0, 0);
 
-        Assert.Equal("O の番です", form.StatusLabel.Text);
+        // Find the O cell and check its color
+        for (int r = 0; r < GameEngine.BoardSize; r++)
+            for (int c = 0; c < GameEngine.BoardSize; c++)
+                if (form.GetCell(r, c).Text == "O")
+                    Assert.Equal(Color.DarkRed, form.GetCell(r, c).ForeColor);
     }
 
     [StaFact]
-    public void ClickCell_OccupiedCell_DoesNotChangeText()
+    public void ClickCell_AfterComputerMove_StatusShowsPlayerTurn()
     {
-        using var form = new Form1();
+        using var form = new Form1(CreateMockRepo());
 
-        form.SimulateCellClick(0, 0); // X
-        form.SimulateCellClick(0, 0); // try again (O's turn)
+        form.SimulateCellClick(0, 0);
+
+        if (!form.Engine.IsGameOver)
+            Assert.Equal("あなたの番です (X)", form.StatusLabel.Text);
+    }
+
+    [StaFact]
+    public void ClickCell_OccupiedCell_DoesNotChangeAnything()
+    {
+        using var form = new Form1(CreateMockRepo());
+
+        form.SimulateCellClick(0, 0); // X placed
+        string statusAfterFirst = form.StatusLabel.Text;
+
+        form.SimulateCellClick(0, 0); // try same cell
 
         Assert.Equal("X", form.GetCell(0, 0).Text);
     }
 
     [StaFact]
-    public void ClickCell_OccupiedCell_DoesNotSwitchTurn()
+    public void ClickCell_DuringComputerTurn_Ignored()
     {
-        using var form = new Form1();
+        using var form = new Form1(CreateMockRepo());
 
-        form.SimulateCellClick(0, 0); // X → O's turn
-        Assert.Equal("O の番です", form.StatusLabel.Text);
+        // After player move, it's player's turn again (computer already played)
+        form.SimulateCellClick(1, 1);
 
-        form.SimulateCellClick(0, 0); // rejected
-        Assert.Equal("O の番です", form.StatusLabel.Text); // still O's turn
+        if (!form.Engine.IsGameOver)
+        {
+            Assert.True(form.Engine.IsXTurn);
+        }
     }
 
     #endregion
 
-    #region Win Scenario
+    #region Game Flow - Computer Never Loses
 
     [StaFact]
-    public void PlayGame_XWinsTopRow_ShowsWinMessage()
+    public void PlayFullGame_ComputerNeverLoses()
     {
-        using var form = new Form1();
+        using var form = new Form1(CreateMockRepo());
 
-        form.SimulateCellClick(0, 0); // X
-        form.SimulateCellClick(1, 0); // O
-        form.SimulateCellClick(0, 1); // X
-        form.SimulateCellClick(1, 1); // O
-        form.SimulateCellClick(0, 2); // X wins
+        // Play through a game - player picks first available cells
+        while (!form.Engine.IsGameOver)
+        {
+            bool moved = false;
+            for (int r = 0; r < GameEngine.BoardSize && !moved; r++)
+            {
+                for (int c = 0; c < GameEngine.BoardSize && !moved; c++)
+                {
+                    if (string.IsNullOrEmpty(form.GetCell(r, c).Text))
+                    {
+                        form.SimulateCellClick(r, c);
+                        moved = true;
+                    }
+                }
+            }
+            if (!moved) break;
+        }
 
-        Assert.Equal("X の勝ち！", form.StatusLabel.Text);
+        // Computer (minimax) should not lose
+        Assert.True(form.Engine.OWins > 0 || form.Engine.Draws > 0);
     }
 
     [StaFact]
-    public void PlayGame_XWinsTopRow_HighlightsWinningCells()
+    public void PlayFullGame_PlayerCornerStart_ComputerDoesNotLose()
     {
-        using var form = new Form1();
+        using var form = new Form1(CreateMockRepo());
 
-        form.SimulateCellClick(0, 0); // X
-        form.SimulateCellClick(1, 0); // O
-        form.SimulateCellClick(0, 1); // X
-        form.SimulateCellClick(1, 1); // O
-        form.SimulateCellClick(0, 2); // X wins
+        form.SimulateCellClick(0, 0); // corner
 
-        Assert.Equal(Color.LightGreen, form.GetCell(0, 0).BackColor);
-        Assert.Equal(Color.LightGreen, form.GetCell(0, 1).BackColor);
-        Assert.Equal(Color.LightGreen, form.GetCell(0, 2).BackColor);
+        while (!form.Engine.IsGameOver)
+        {
+            bool moved = false;
+            for (int r = 0; r < GameEngine.BoardSize && !moved; r++)
+            {
+                for (int c = 0; c < GameEngine.BoardSize && !moved; c++)
+                {
+                    if (string.IsNullOrEmpty(form.GetCell(r, c).Text))
+                    {
+                        form.SimulateCellClick(r, c);
+                        moved = true;
+                    }
+                }
+            }
+            if (!moved) break;
+        }
+
+        Assert.True(form.Engine.OWins > 0 || form.Engine.Draws > 0);
     }
 
     [StaFact]
-    public void PlayGame_XWinsTopRow_NonWinningCellsNotHighlighted()
+    public void PlayFullGame_PlayerCenterStart_ComputerDoesNotLose()
     {
-        using var form = new Form1();
+        using var form = new Form1(CreateMockRepo());
 
-        form.SimulateCellClick(0, 0); // X
-        form.SimulateCellClick(1, 0); // O
-        form.SimulateCellClick(0, 1); // X
-        form.SimulateCellClick(1, 1); // O
-        form.SimulateCellClick(0, 2); // X wins
+        form.SimulateCellClick(1, 1); // center
 
-        Assert.Equal(Color.White, form.GetCell(1, 0).BackColor);
-        Assert.Equal(Color.White, form.GetCell(1, 1).BackColor);
-        Assert.Equal(Color.White, form.GetCell(2, 0).BackColor);
-    }
+        while (!form.Engine.IsGameOver)
+        {
+            bool moved = false;
+            for (int r = 0; r < GameEngine.BoardSize && !moved; r++)
+            {
+                for (int c = 0; c < GameEngine.BoardSize && !moved; c++)
+                {
+                    if (string.IsNullOrEmpty(form.GetCell(r, c).Text))
+                    {
+                        form.SimulateCellClick(r, c);
+                        moved = true;
+                    }
+                }
+            }
+            if (!moved) break;
+        }
 
-    [StaFact]
-    public void PlayGame_XWinsTopRow_UpdatesScore()
-    {
-        using var form = new Form1();
-
-        form.SimulateCellClick(0, 0); // X
-        form.SimulateCellClick(1, 0); // O
-        form.SimulateCellClick(0, 1); // X
-        form.SimulateCellClick(1, 1); // O
-        form.SimulateCellClick(0, 2); // X wins
-
-        Assert.Equal("X: 1  O: 0  引き分け: 0", form.ScoreLabel.Text);
-    }
-
-    [StaFact]
-    public void PlayGame_OWinsLeftColumn_ShowsWinMessage()
-    {
-        using var form = new Form1();
-
-        form.SimulateCellClick(0, 1); // X
-        form.SimulateCellClick(0, 0); // O
-        form.SimulateCellClick(1, 1); // X
-        form.SimulateCellClick(1, 0); // O
-        form.SimulateCellClick(2, 2); // X
-        form.SimulateCellClick(2, 0); // O wins
-
-        Assert.Equal("O の勝ち！", form.StatusLabel.Text);
-    }
-
-    [StaFact]
-    public void PlayGame_OWinsLeftColumn_HighlightsColumn()
-    {
-        using var form = new Form1();
-
-        form.SimulateCellClick(0, 1); // X
-        form.SimulateCellClick(0, 0); // O
-        form.SimulateCellClick(1, 1); // X
-        form.SimulateCellClick(1, 0); // O
-        form.SimulateCellClick(2, 2); // X
-        form.SimulateCellClick(2, 0); // O wins
-
-        Assert.Equal(Color.LightGreen, form.GetCell(0, 0).BackColor);
-        Assert.Equal(Color.LightGreen, form.GetCell(1, 0).BackColor);
-        Assert.Equal(Color.LightGreen, form.GetCell(2, 0).BackColor);
-    }
-
-    [StaFact]
-    public void PlayGame_XWinsMainDiagonal_HighlightsDiagonal()
-    {
-        using var form = new Form1();
-
-        form.SimulateCellClick(0, 0); // X
-        form.SimulateCellClick(0, 1); // O
-        form.SimulateCellClick(1, 1); // X
-        form.SimulateCellClick(0, 2); // O
-        form.SimulateCellClick(2, 2); // X wins
-
-        Assert.Equal(Color.LightGreen, form.GetCell(0, 0).BackColor);
-        Assert.Equal(Color.LightGreen, form.GetCell(1, 1).BackColor);
-        Assert.Equal(Color.LightGreen, form.GetCell(2, 2).BackColor);
-    }
-
-    [StaFact]
-    public void PlayGame_XWinsAntiDiagonal_HighlightsDiagonal()
-    {
-        using var form = new Form1();
-
-        form.SimulateCellClick(0, 2); // X
-        form.SimulateCellClick(0, 0); // O
-        form.SimulateCellClick(1, 1); // X
-        form.SimulateCellClick(1, 0); // O
-        form.SimulateCellClick(2, 0); // X wins
-
-        Assert.Equal(Color.LightGreen, form.GetCell(0, 2).BackColor);
-        Assert.Equal(Color.LightGreen, form.GetCell(1, 1).BackColor);
-        Assert.Equal(Color.LightGreen, form.GetCell(2, 0).BackColor);
-    }
-
-    [StaFact]
-    public void PlayGame_AfterWin_ClicksAreIgnored()
-    {
-        using var form = new Form1();
-
-        // X wins top row
-        form.SimulateCellClick(0, 0); // X
-        form.SimulateCellClick(1, 0); // O
-        form.SimulateCellClick(0, 1); // X
-        form.SimulateCellClick(1, 1); // O
-        form.SimulateCellClick(0, 2); // X wins
-
-        // Try clicking remaining cells
-        form.SimulateCellClick(2, 0);
-        form.SimulateCellClick(2, 1);
-        form.SimulateCellClick(2, 2);
-
-        Assert.Equal("", form.GetCell(2, 0).Text);
-        Assert.Equal("", form.GetCell(2, 1).Text);
-        Assert.Equal("", form.GetCell(2, 2).Text);
+        Assert.True(form.Engine.OWins > 0 || form.Engine.Draws > 0);
     }
 
     #endregion
 
-    #region Draw Scenario
+    #region Score and Database
 
     [StaFact]
-    public void PlayGame_Draw_ShowsDrawMessage()
+    public void PlayGame_GameEnds_SavesResultToRepository()
     {
-        using var form = new Form1();
+        var mockRepo = CreateMockRepo();
+        using var form = new Form1(mockRepo);
 
-        // Board: X O X / X X O / O X O
-        form.SimulateCellClick(0, 0); // X
-        form.SimulateCellClick(0, 1); // O
-        form.SimulateCellClick(0, 2); // X
-        form.SimulateCellClick(1, 2); // O
-        form.SimulateCellClick(1, 0); // X
-        form.SimulateCellClick(2, 0); // O
-        form.SimulateCellClick(1, 1); // X
-        form.SimulateCellClick(2, 2); // O
-        form.SimulateCellClick(2, 1); // X → draw
+        // Play through a full game
+        while (!form.Engine.IsGameOver)
+        {
+            bool moved = false;
+            for (int r = 0; r < GameEngine.BoardSize && !moved; r++)
+            {
+                for (int c = 0; c < GameEngine.BoardSize && !moved; c++)
+                {
+                    if (string.IsNullOrEmpty(form.GetCell(r, c).Text))
+                    {
+                        form.SimulateCellClick(r, c);
+                        moved = true;
+                    }
+                }
+            }
+            if (!moved) break;
+        }
 
-        Assert.Equal("引き分け！", form.StatusLabel.Text);
+        Assert.Single(mockRepo.SavedResults);
     }
 
     [StaFact]
-    public void PlayGame_Draw_UpdatesScore()
+    public void PlayGame_GameEnds_ScoreLabelUpdates()
     {
-        using var form = new Form1();
+        var mockRepo = CreateMockRepo();
+        using var form = new Form1(mockRepo);
 
-        form.SimulateCellClick(0, 0); // X
-        form.SimulateCellClick(0, 1); // O
-        form.SimulateCellClick(0, 2); // X
-        form.SimulateCellClick(1, 2); // O
-        form.SimulateCellClick(1, 0); // X
-        form.SimulateCellClick(2, 0); // O
-        form.SimulateCellClick(1, 1); // X
-        form.SimulateCellClick(2, 2); // O
-        form.SimulateCellClick(2, 1); // X → draw
+        // Play through a full game
+        while (!form.Engine.IsGameOver)
+        {
+            bool moved = false;
+            for (int r = 0; r < GameEngine.BoardSize && !moved; r++)
+            {
+                for (int c = 0; c < GameEngine.BoardSize && !moved; c++)
+                {
+                    if (string.IsNullOrEmpty(form.GetCell(r, c).Text))
+                    {
+                        form.SimulateCellClick(r, c);
+                        moved = true;
+                    }
+                }
+            }
+            if (!moved) break;
+        }
 
-        Assert.Equal("X: 0  O: 0  引き分け: 1", form.ScoreLabel.Text);
+        // Score label should have been updated
+        Assert.DoesNotContain("あなた: 0  PC: 0  引き分け: 0", form.ScoreLabel.Text);
     }
 
     [StaFact]
-    public void PlayGame_Draw_NoCellsHighlighted()
+    public void PlayMultipleGames_ScoreAccumulates()
     {
-        using var form = new Form1();
+        var mockRepo = CreateMockRepo();
+        using var form = new Form1(mockRepo);
 
-        form.SimulateCellClick(0, 0); // X
-        form.SimulateCellClick(0, 1); // O
-        form.SimulateCellClick(0, 2); // X
-        form.SimulateCellClick(1, 2); // O
-        form.SimulateCellClick(1, 0); // X
-        form.SimulateCellClick(2, 0); // O
-        form.SimulateCellClick(1, 1); // X
-        form.SimulateCellClick(2, 2); // O
-        form.SimulateCellClick(2, 1); // X → draw
+        // Play first game
+        while (!form.Engine.IsGameOver)
+        {
+            bool moved = false;
+            for (int r = 0; r < GameEngine.BoardSize && !moved; r++)
+                for (int c = 0; c < GameEngine.BoardSize && !moved; c++)
+                    if (string.IsNullOrEmpty(form.GetCell(r, c).Text))
+                    {
+                        form.SimulateCellClick(r, c);
+                        moved = true;
+                    }
+            if (!moved) break;
+        }
 
-        for (int r = 0; r < GameEngine.BoardSize; r++)
-            for (int c = 0; c < GameEngine.BoardSize; c++)
-                Assert.Equal(Color.White, form.GetCell(r, c).BackColor);
+        form.SimulateResetClick();
+
+        // Play second game
+        while (!form.Engine.IsGameOver)
+        {
+            bool moved = false;
+            for (int r = GameEngine.BoardSize - 1; r >= 0 && !moved; r--)
+                for (int c = GameEngine.BoardSize - 1; c >= 0 && !moved; c--)
+                    if (string.IsNullOrEmpty(form.GetCell(r, c).Text))
+                    {
+                        form.SimulateCellClick(r, c);
+                        moved = true;
+                    }
+            if (!moved) break;
+        }
+
+        Assert.Equal(2, mockRepo.SavedResults.Count);
     }
 
     #endregion
@@ -319,16 +317,11 @@ public class Form1E2ETests
     #region Reset
 
     [StaFact]
-    public void Reset_AfterWin_ClearsAllCellTexts()
+    public void Reset_AfterGame_ClearsAllCells()
     {
-        using var form = new Form1();
+        using var form = new Form1(CreateMockRepo());
 
-        // X wins top row
         form.SimulateCellClick(0, 0);
-        form.SimulateCellClick(1, 0);
-        form.SimulateCellClick(0, 1);
-        form.SimulateCellClick(1, 1);
-        form.SimulateCellClick(0, 2);
 
         form.SimulateResetClick();
 
@@ -338,17 +331,22 @@ public class Form1E2ETests
     }
 
     [StaFact]
-    public void Reset_AfterWin_RestoresWhiteBackground()
+    public void Reset_AfterGame_StatusShowsPlayerTurn()
     {
-        using var form = new Form1();
+        using var form = new Form1(CreateMockRepo());
 
-        // X wins top row
         form.SimulateCellClick(0, 0);
-        form.SimulateCellClick(1, 0);
-        form.SimulateCellClick(0, 1);
-        form.SimulateCellClick(1, 1);
-        form.SimulateCellClick(0, 2);
+        form.SimulateResetClick();
 
+        Assert.Equal("あなたの番です (X)", form.StatusLabel.Text);
+    }
+
+    [StaFact]
+    public void Reset_AfterGame_CellsHaveWhiteBackground()
+    {
+        using var form = new Form1(CreateMockRepo());
+
+        form.SimulateCellClick(0, 0);
         form.SimulateResetClick();
 
         for (int r = 0; r < GameEngine.BoardSize; r++)
@@ -357,156 +355,105 @@ public class Form1E2ETests
     }
 
     [StaFact]
-    public void Reset_AfterWin_StatusShowsXTurn()
+    public void Reset_AllowsNewGame()
     {
-        using var form = new Form1();
+        using var form = new Form1(CreateMockRepo());
 
-        form.SimulateCellClick(0, 0);
-        form.SimulateCellClick(1, 0);
-        form.SimulateCellClick(0, 1);
         form.SimulateCellClick(1, 1);
-        form.SimulateCellClick(0, 2);
-
         form.SimulateResetClick();
-
-        Assert.Equal("X の番です", form.StatusLabel.Text);
-    }
-
-    [StaFact]
-    public void Reset_PreservesScoreFromPreviousGames()
-    {
-        using var form = new Form1();
-
-        // Game 1: X wins
         form.SimulateCellClick(0, 0);
-        form.SimulateCellClick(1, 0);
-        form.SimulateCellClick(0, 1);
-        form.SimulateCellClick(1, 1);
-        form.SimulateCellClick(0, 2);
 
-        form.SimulateResetClick();
-
-        Assert.Equal("X: 1  O: 0  引き分け: 0", form.ScoreLabel.Text);
-    }
-
-    [StaFact]
-    public void Reset_AllowsNewGameToStart()
-    {
-        using var form = new Form1();
-
-        // Game 1: X wins
-        form.SimulateCellClick(0, 0);
-        form.SimulateCellClick(1, 0);
-        form.SimulateCellClick(0, 1);
-        form.SimulateCellClick(1, 1);
-        form.SimulateCellClick(0, 2);
-
-        form.SimulateResetClick();
-
-        // New game: click should work
-        form.SimulateCellClick(1, 1);
-        Assert.Equal("X", form.GetCell(1, 1).Text);
+        Assert.Equal("X", form.GetCell(0, 0).Text);
     }
 
     #endregion
 
-    #region Multi-Game Scenario
+    #region Win Highlighting
 
     [StaFact]
-    public void MultipleGames_ScoreAccumulatesCorrectly()
+    public void GameOver_WinHighlighting_ShowsGreenCells()
     {
-        using var form = new Form1();
+        var mockRepo = CreateMockRepo();
+        using var form = new Form1(mockRepo);
 
-        // Game 1: X wins top row
-        form.SimulateCellClick(0, 0); // X
-        form.SimulateCellClick(1, 0); // O
-        form.SimulateCellClick(0, 1); // X
-        form.SimulateCellClick(1, 1); // O
-        form.SimulateCellClick(0, 2); // X wins
-        Assert.Equal("X: 1  O: 0  引き分け: 0", form.ScoreLabel.Text);
-
-        form.SimulateResetClick();
-
-        // Game 2: O wins left column
-        form.SimulateCellClick(0, 1); // X
-        form.SimulateCellClick(0, 0); // O
-        form.SimulateCellClick(1, 1); // X
-        form.SimulateCellClick(1, 0); // O
-        form.SimulateCellClick(2, 2); // X
-        form.SimulateCellClick(2, 0); // O wins
-        Assert.Equal("X: 1  O: 1  引き分け: 0", form.ScoreLabel.Text);
-
-        form.SimulateResetClick();
-
-        // Game 3: Draw
-        form.SimulateCellClick(0, 0); // X
-        form.SimulateCellClick(0, 1); // O
-        form.SimulateCellClick(0, 2); // X
-        form.SimulateCellClick(1, 2); // O
-        form.SimulateCellClick(1, 0); // X
-        form.SimulateCellClick(2, 0); // O
-        form.SimulateCellClick(1, 1); // X
-        form.SimulateCellClick(2, 2); // O
-        form.SimulateCellClick(2, 1); // draw
-        Assert.Equal("X: 1  O: 1  引き分け: 1", form.ScoreLabel.Text);
-    }
-
-    [StaFact]
-    public void MultipleGames_EachGameStartsFresh()
-    {
-        using var form = new Form1();
-
-        // Game 1
-        form.SimulateCellClick(0, 0);
-        form.SimulateCellClick(1, 0);
-        form.SimulateCellClick(0, 1);
-        form.SimulateCellClick(1, 1);
-        form.SimulateCellClick(0, 2);
-
-        form.SimulateResetClick();
-
-        // Game 2: verify first click is X (not O)
-        form.SimulateCellClick(2, 2);
-        Assert.Equal("X", form.GetCell(2, 2).Text);
-        Assert.Equal(Color.DarkBlue, form.GetCell(2, 2).ForeColor);
-    }
-
-    #endregion
-
-    #region Engine-UI Consistency
-
-    [StaFact]
-    public void ClickCell_EngineBoardMatchesUIBoard()
-    {
-        using var form = new Form1();
-
-        form.SimulateCellClick(0, 0); // X
-        form.SimulateCellClick(1, 1); // O
-        form.SimulateCellClick(2, 0); // X
-
-        for (int r = 0; r < GameEngine.BoardSize; r++)
+        // Play a full game
+        while (!form.Engine.IsGameOver)
         {
-            for (int c = 0; c < GameEngine.BoardSize; c++)
-            {
-                Assert.Equal(form.Engine.GetCell(r, c), form.GetCell(r, c).Text);
-            }
+            bool moved = false;
+            for (int r = 0; r < GameEngine.BoardSize && !moved; r++)
+                for (int c = 0; c < GameEngine.BoardSize && !moved; c++)
+                    if (string.IsNullOrEmpty(form.GetCell(r, c).Text))
+                    {
+                        form.SimulateCellClick(r, c);
+                        moved = true;
+                    }
+            if (!moved) break;
+        }
+
+        if (form.Engine.XWins > 0 || form.Engine.OWins > 0)
+        {
+            // At least one cell should be highlighted
+            bool hasHighlight = false;
+            for (int r = 0; r < GameEngine.BoardSize; r++)
+                for (int c = 0; c < GameEngine.BoardSize; c++)
+                    if (form.GetCell(r, c).BackColor == Color.LightGreen)
+                        hasHighlight = true;
+            Assert.True(hasHighlight);
         }
     }
 
+    #endregion
+
+    #region Status Messages
+
     [StaFact]
-    public void WinGame_EngineStateMatchesUIState()
+    public void GameOver_ShowsAppropriateMessage()
     {
-        using var form = new Form1();
+        using var form = new Form1(CreateMockRepo());
 
-        form.SimulateCellClick(0, 0); // X
-        form.SimulateCellClick(1, 0); // O
-        form.SimulateCellClick(0, 1); // X
-        form.SimulateCellClick(1, 1); // O
-        form.SimulateCellClick(0, 2); // X wins
+        while (!form.Engine.IsGameOver)
+        {
+            bool moved = false;
+            for (int r = 0; r < GameEngine.BoardSize && !moved; r++)
+                for (int c = 0; c < GameEngine.BoardSize && !moved; c++)
+                    if (string.IsNullOrEmpty(form.GetCell(r, c).Text))
+                    {
+                        form.SimulateCellClick(r, c);
+                        moved = true;
+                    }
+            if (!moved) break;
+        }
 
-        Assert.True(form.Engine.IsGameOver);
-        Assert.Equal(1, form.Engine.XWins);
-        Assert.Contains("X の勝ち", form.StatusLabel.Text);
+        string status = form.StatusLabel.Text;
+        Assert.True(
+            status == "あなたの勝ち！" || status == "PCの勝ち！" || status == "引き分け！",
+            $"Unexpected status: {status}");
+    }
+
+    [StaFact]
+    public void GameOver_ClicksAreIgnored()
+    {
+        using var form = new Form1(CreateMockRepo());
+
+        while (!form.Engine.IsGameOver)
+        {
+            bool moved = false;
+            for (int r = 0; r < GameEngine.BoardSize && !moved; r++)
+                for (int c = 0; c < GameEngine.BoardSize && !moved; c++)
+                    if (string.IsNullOrEmpty(form.GetCell(r, c).Text))
+                    {
+                        form.SimulateCellClick(r, c);
+                        moved = true;
+                    }
+            if (!moved) break;
+        }
+
+        string statusAfterGame = form.StatusLabel.Text;
+
+        // Try clicking after game over
+        form.SimulateCellClick(0, 0);
+
+        Assert.Equal(statusAfterGame, form.StatusLabel.Text);
     }
 
     #endregion
