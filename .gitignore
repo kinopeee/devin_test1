@@ -22,6 +22,12 @@ project.lock.json
 project.fragment.lock.json
 artifacts/
 
+## Database
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
 ## Visual Studio
 .vs/
 *.sln.docstates

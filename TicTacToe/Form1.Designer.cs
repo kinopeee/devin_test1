@@ -23,7 +23,7 @@ partial class Form1
         this.components = new System.ComponentModel.Container();
         this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
         this.ClientSize = new System.Drawing.Size(360, 440);
-        this.Text = "\u4e09\u76ee\u4e26\u3079 (Tic-Tac-Toe)";
+        this.Text = "\u4e09\u76ee\u4e26\u3079 - PC\u5bfe\u6226";
         this.FormBorderStyle = FormBorderStyle.FixedSingle;
         this.MaximizeBox = false;
         this.StartPosition = FormStartPosition.CenterScreen;
@@ -58,7 +58,7 @@ partial class Form1
 
         _scoreLabel = new Label
         {
-            Text = "X: 0  O: 0  \u5f15\u304d\u5206\u3051: 0",
+            Text = "\u3042\u306a\u305f: 0  PC: 0  \u5f15\u304d\u5206\u3051: 0",
             Font = new Font("Yu Gothic UI", 10),
             AutoSize = false,
             Width = 200,

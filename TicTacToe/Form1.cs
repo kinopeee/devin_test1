@@ -5,8 +5,12 @@ public partial class Form1 : Form
     private const int BoardSize = GameEngine.BoardSize;
     private readonly Button[,] _cells = new Button[BoardSize, BoardSize];
     private readonly GameEngine _engine = new();
+    private readonly ComputerPlayer _computer;
+    private readonly IGameRepository _repository;
 
     internal GameEngine Engine => _engine;
+    internal ComputerPlayer Computer => _computer;
+    internal IGameRepository Repository => _repository;
     internal Button GetCell(int row, int col) => _cells[row, col];
     internal Label StatusLabel => _statusLabel;
     internal Label ScoreLabel => _scoreLabel;
@@ -18,11 +22,18 @@ public partial class Form1 : Form
     internal void SimulateResetClick() =>
         ResetButton_Click(_resetButton, EventArgs.Empty);
 
-    public Form1()
+    public Form1() : this(new GameRepository())
     {
+    }
+
+    public Form1(IGameRepository repository)
+    {
+        _repository = repository;
+        _computer = new ComputerPlayer(_engine);
         InitializeComponent();
         CreateBoard();
         UpdateStatus();
+        LoadStatistics();
     }
 
     private void CreateBoard()
@@ -58,30 +69,93 @@ public partial class Form1 : Form
         if (sender is not Button button)
             return;
 
+        if (!_engine.IsXTurn || _engine.IsGameOver)
+            return;
+
         var pos = (Point)button.Tag!;
         var result = _engine.PlaceMark(pos.X, pos.Y);
 
         if (result == MoveResult.CellOccupied || result == MoveResult.GameAlreadyOver || result == MoveResult.InvalidPosition)
             return;
 
-        string placedMark = _engine.GetCell(pos.X, pos.Y);
-        button.Text = placedMark;
-        button.ForeColor = placedMark == "X" ? Color.DarkBlue : Color.DarkRed;
+        button.Text = "X";
+        button.ForeColor = Color.DarkBlue;
 
-        switch (result)
+        if (result == MoveResult.Win)
         {
-            case MoveResult.Win:
-                UpdateScoreLabel();
-                _statusLabel.Text = $"{placedMark} の勝ち！";
-                HighlightWinningCells();
-                break;
-            case MoveResult.Draw:
-                UpdateScoreLabel();
-                _statusLabel.Text = "引き分け！";
-                break;
-            case MoveResult.Success:
-                UpdateStatus();
-                break;
+            _statusLabel.Text = "あなたの勝ち！";
+            HighlightWinningCells();
+            SaveResult(GameResult.PlayerWin);
+            LoadStatistics();
+            return;
+        }
+
+        if (result == MoveResult.Draw)
+        {
+            _statusLabel.Text = "引き分け！";
+            SaveResult(GameResult.Draw);
+            LoadStatistics();
+            return;
+        }
+
+        MakeComputerMove();
+    }
+
+    internal void MakeComputerMove()
+    {
+        if (_engine.IsGameOver || _engine.IsXTurn)
+            return;
+
+        _statusLabel.Text = "PCが考え中...";
+
+        var (row, col) = _computer.GetBestMove();
+        var result = _engine.PlaceMark(row, col);
+
+        _cells[row, col].Text = "O";
+        _cells[row, col].ForeColor = Color.DarkRed;
+
+        if (result == MoveResult.Win)
+        {
+            _statusLabel.Text = "PCの勝ち！";
+            HighlightWinningCells();
+            SaveResult(GameResult.ComputerWin);
+            LoadStatistics();
+            return;
+        }
+
+        if (result == MoveResult.Draw)
+        {
+            _statusLabel.Text = "引き分け！";
+            SaveResult(GameResult.Draw);
+            LoadStatistics();
+            return;
+        }
+
+        UpdateStatus();
+    }
+
+    private void SaveResult(GameResult result)
+    {
+        try
+        {
+            _repository.SaveGameResult(result, _engine.MoveCount);
+        }
+        catch
+        {
+            // DB save failure should not crash the game
+        }
+    }
+
+    private void LoadStatistics()
+    {
+        try
+        {
+            var stats = _repository.GetStatistics();
+            _scoreLabel.Text = $"あなた: {stats.PlayerWins}  PC: {stats.ComputerWins}  引き分け: {stats.Draws}";
+        }
+        catch
+        {
+            _scoreLabel.Text = $"あなた: {_engine.XWins}  PC: {_engine.OWins}  引き分け: {_engine.Draws}";
         }
     }
 
@@ -121,12 +195,7 @@ public partial class Form1 : Form
 
     private void UpdateStatus()
     {
-        _statusLabel.Text = _engine.IsXTurn ? "X の番です" : "O の番です";
-    }
-
-    private void UpdateScoreLabel()
-    {
-        _scoreLabel.Text = $"X: {_engine.XWins}  O: {_engine.OWins}  引き分け: {_engine.Draws}";
+        _statusLabel.Text = "あなたの番です (X)";
     }
 
     private void ResetButton_Click(object? sender, EventArgs e)
